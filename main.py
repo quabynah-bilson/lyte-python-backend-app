@@ -6,6 +6,7 @@ from fastapi import Depends
 from schema.user import UserCreate, UserResponse
 from schema.task import TaskCreate, TaskResponse, TaskUpdate
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from models.user import User
 from models.task import Task
 
@@ -20,6 +21,16 @@ app = FastAPI(
     title="Lyte API",
     description="Lyte API",
     version="0.0.1",
+)
+
+# CORS configuration - allow all origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 
@@ -66,7 +77,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     return None
 
 
-@app.get("/api/tasks/{user_id}", response_model=list[TaskResponse])
+@app.get("/api/users/{user_id}/tasks", response_model=list[TaskResponse])
 def get_tasks_by_user(user_id: int, db: Session = Depends(get_db)):
     tasks = db.query(Task).filter(Task.user_id == user_id).all()
     return tasks
