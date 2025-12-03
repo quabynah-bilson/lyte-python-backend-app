@@ -2,4 +2,4 @@ install-deps:
 	pip install -r requirements.txt
 
 run:
-	uvicorn main:app --reload
+uvicorn main:app --reload	

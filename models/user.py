@@ -15,3 +15,4 @@ class User(Base):
     is_active = Column(Boolean, default=True)
 
     tasks = relationship("Task", back_populates="owner")
+    teams = relationship("Team", back_populates="users")

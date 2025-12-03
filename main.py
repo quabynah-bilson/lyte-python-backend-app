@@ -9,6 +9,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from models.user import User
 from models.task import Task
+from schema.team import TeamCreate, TeamUpdate, TeamResponse
+from models.team import Team 
+
 
 # load environment variables
 load_dotenv()
@@ -135,5 +138,51 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     db.delete(task)
+    db.commit()
+    return None
+
+@app.post("/api/teams", response_model=TeamResponse, status_code=201)
+def create_team(team: TeamCreate, db: Session = Depends(get_db)):
+    db_team = Team(
+        name=team.name,
+        description=team.description,
+        user_id=team.user_id,
+    )
+    db.add(db_team)
+    db.commit()
+    db.refresh(db_team)
+    return db_team
+
+@app.get("/api/teams", response_model=list[TeamResponse])
+def get_teams(db: Session = Depends(get_db)):
+    teams = db.query(Team).all()
+    return teams
+
+@app.get("/api/teams/{team_id}", response_model=TeamResponse)
+def get_team(team_id: int, db: Session = Depends(get_db)):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return team
+
+@app.put("/api/teams/{team_id}", response_model=TeamResponse)
+def update_team(team_id: int, team: TeamUpdate, db: Session = Depends(get_db)):
+    db_team = db.query(Team).filter(Team.id == team_id).first()
+    if not db_team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    db_team.name = team.name
+    db_team.description = team.description
+    db.add(db_team)
+    db.commit()
+    db.refresh(db_team)
+    return db_team
+
+@app.delete("/api/teams/{team_id}", status_code=204)
+def delete_team(team_id: int, db: Session = Depends(get_db)):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    db.delete(team)
     db.commit()
     return None
