@@ -11,6 +11,7 @@ from models.user import User
 from models.task import Task
 from schema.team import TeamCreate, TeamUpdate, TeamResponse
 from models.team import Team 
+from models.team_member import TeamMember
 
 
 # load environment variables
@@ -45,8 +46,11 @@ def root():
 # user endpoints
 @app.get("/api/users", response_model=list[UserResponse])
 def get_users(db: Session = Depends(get_db)):
-    users = db.query(User).all()
-    return users
+    try:
+        users = db.query(User).all()
+        return users
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/users", response_model=UserResponse, status_code=201)
@@ -143,20 +147,26 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
 
 @app.post("/api/teams", response_model=TeamResponse, status_code=201)
 def create_team(team: TeamCreate, db: Session = Depends(get_db)):
-    db_team = Team(
-        name=team.name,
-        description=team.description,
-        user_id=team.user_id,
-    )
-    db.add(db_team)
-    db.commit()
-    db.refresh(db_team)
-    return db_team
+    try:
+        db_team = Team(
+            name=team.name,
+            # description=team.description,
+            # user_id=team.user_id,
+        )
+        db.add(db_team)
+        db.commit()
+        db.refresh(db_team)
+        return db_team 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))     
 
 @app.get("/api/teams", response_model=list[TeamResponse])
 def get_teams(db: Session = Depends(get_db)):
-    teams = db.query(Team).all()
-    return teams
+    try:
+        teams = db.query(Team).all()
+        return teams
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))   
 
 @app.get("/api/teams/{team_id}", response_model=TeamResponse)
 def get_team(team_id: int, db: Session = Depends(get_db)):
@@ -172,7 +182,7 @@ def update_team(team_id: int, team: TeamUpdate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Team not found")
     
     db_team.name = team.name
-    db_team.description = team.description
+    # db_team.description = team.description
     db.add(db_team)
     db.commit()
     db.refresh(db_team)
@@ -186,3 +196,62 @@ def delete_team(team_id: int, db: Session = Depends(get_db)):
     db.delete(team)
     db.commit()
     return None
+
+
+@app.post("/api/teams/{team_id}/members/assign")
+def assign_user_to_team(
+    team_id: int,
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    db_team = db.query(Team).filter(Team.id== team_id).first()
+    db_user = db.query(User).filter(User.id == user_id).first()
+
+    if not db_team or not db_user:
+        raise HTTPException(status_code=404, detail="Team or user not found")
+
+    try:
+        db_team.users.append(db_user)
+        db.commit()
+        db.refresh(db_team)
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Database error")
+
+    return db_team
+
+@app.post("/api/teams/{team_id}/members")
+def add_team_member(team_id: int, user_id: int, role: str, db: Session = Depends(get_db)):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not team or not user:
+        raise HTTPException(status_code=404, detail="Team or user not found")
+
+    member = TeamMember(team_id=team_id, user_id=user_id, role=role)
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+
+    return {
+        "user_id": user.id,
+        "team_id": team.id,
+        "role": role
+    }
+
+@app.get("/api/teams/{team_id}/members")
+def get_team_members(team_id: int, db: Session = Depends(get_db)):
+    members = db.query(TeamMember).filter(TeamMember.team_id == team_id).all()
+    if not members:
+        raise HTTPException(status_code=404, detail="No members found")
+
+    return [
+        {
+            "user_id": m.user.id,
+            "name": m.user.name,
+            "role": m.role
+        }
+        for m in members
+    ]
+
+

@@ -1,7 +1,6 @@
-from .base import Base
 from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.orm import relationship
-
+from .base import Base  # or from database import Base
 
 class User(Base):
     """User table in database"""
@@ -14,5 +13,12 @@ class User(Base):
     name = Column(String)
     is_active = Column(Boolean, default=True)
 
+    # Remove direct team link
+    # team_id = Column(Integer, ForeignKey("teams.id"))   ❌
+    # team = relationship("Team", back_populates="users") ❌
+
+    # Team memberships through TeamMember
+    teams = relationship("TeamMember", back_populates="user")
+
+    # Tasks owned by this user
     tasks = relationship("Task", back_populates="owner")
-    teams = relationship("Team", back_populates="users")
